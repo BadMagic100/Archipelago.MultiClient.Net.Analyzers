@@ -59,6 +59,46 @@ return item.Flags == ItemFlags.Advancement;
 return item.Flags.HasFlag(ItemFlags.Advancement);
 ```
 
+### MULTICLIENT003 - Avoid value comparisons for ItemFlags objects in switch cases
+
+This warning is intended to prevent bugs when comparing `ItemFlags`. Because item classification is a flag,
+an item might have multiple flag values set, such as `ItemFlags.Advancement | ItemFlags.Trap`. In such scenarios,
+a switch statement does not capture the programmer's intent ("is this item a progression item") due to its use of
+direct comparisons. Instead, pattern matching case statements with `HasFlag` should be used to perform the comparison. 
+
+This analyzer also offers a corresponding fix action "Convert case to use HasFlag" on offending switch
+statements. These statements will be replaced with pattern matching case statements containing the matching `HasFlag` checks.
+
+**Incorrect Code:**
+
+```cs
+ItemFlags itemFlag = ItemFlags.Advancement | ItemFlags.Trap;
+
+// MULTICLIENT003
+switch (itemFlag) 
+{
+    case ItemFlags.Trap:
+    case ItemFlags.Advancement:
+        return true;
+    default:
+        return false;
+}
+```
+
+**Fixed Code:**
+
+```cs
+ItemFlags i = ItemFlags.Advancement;
+switch (i)
+{
+    case ItemFlags f when f.HasFlag(ItemFlags.Advancement):
+    case ItemFlags f when f1.HasFlag(ItemFlags.Trap):
+        return true;
+    default:
+        return false;
+}
+```
+
 ## Source Generators
 
 ### Data Storage Properties
@@ -75,18 +115,18 @@ have bring your own session.
 ```cs
 partial class MyClass
 {
-	private ArchipelagoSession session;
+    private ArchipelagoSession session;
 
-	[DataStorageProperty(nameof(session), Scope.Slot, "MyScopedData")]
-	private readonly DataStorageElement _myScopedData;
+    [DataStorageProperty(nameof(session), Scope.Slot, "MyScopedData")]
+    private readonly DataStorageElement _myScopedData;
 
-	[DataStorageProperty(nameof(session), "MyGlobalData")]
-	private readonly DataStorageElement _myGlobalData;
+    [DataStorageProperty(nameof(session), "MyGlobalData")]
+    private readonly DataStorageElement _myGlobalData;
 
-	public void DoStuff()
-	{
-		MyScopedData.Initialize(0);
-		MyGlobalData += 2;
-	}
+    public void DoStuff()
+    {
+        MyScopedData.Initialize(0);
+        MyGlobalData += 2;
+    }
 }
 ```
