@@ -16,3 +16,11 @@ MULTICLIENT001 | Usage | Warning | DataStorageDiagnostics, [Documentation](https
 Rule ID | Category | Severity | Notes
 --------|----------|----------|-------
 MULTICLIENT002 | Usage | Warning | ItemFlagsDiagnostics, [Documentation](https://github.com/BadMagic100/Archipelago.MultiClient.Net.Analyzers#multiclient002---use-hasflag-when-comparing-itemflags)
+
+## Release 1.4.0
+
+### New Rules
+
+Rule ID | Category | Severity | Notes
+--------|----------|----------|--------------------
+MULTICLIENT003  | Usage |  Warning | ItemFlagsComparisonInSwitchCaseDiagnostics, [Documentation](https://github.com/BadMagic100/Archipelago.MultiClient.Net.Analyzers#multiclient003---avoid-value-comparisons-for-itemflags-objects-in-switch-cases)
