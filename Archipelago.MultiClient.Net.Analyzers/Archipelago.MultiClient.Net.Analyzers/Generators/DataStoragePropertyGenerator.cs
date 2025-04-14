@@ -1,68 +1,106 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
-using System.Collections.Immutable;
+using System.Linq;
 using System.Text;
 
 namespace Archipelago.MultiClient.Net.Analyzers.Generators
 {
     [Generator(LanguageNames.CSharp)]
-    public class DataStoragePropertyGenerator : ISourceGenerator
+    public class DataStoragePropertyGenerator : IIncrementalGenerator
     {
-        public void Initialize(GeneratorInitializationContext context)
+        private record Model(
+            string ContainingNamespace,
+            string Accessibility,
+            string ClassName,
+            string PropertyName,
+            string SessionReference,
+            string? Scope,
+            string DataStorageKey
+        );
+
+        public void Initialize(IncrementalGeneratorInitializationContext context)
         {
-            context.RegisterForSyntaxNotifications(() => new DataStorageAttributeReceiver());
-        }
-
-        public void Execute(GeneratorExecutionContext context)
-        {
-            if (context.SyntaxContextReceiver is not DataStorageAttributeReceiver rec || rec.Containers.Count == 0)
-            {
-                return;
-            }
-
-            foreach (DataStorageContainer container in rec.Containers)
-            {
-                StringBuilder source = new($@"
-#nullable enable annotations
-
-using Archipelago.MultiClient.Net.Models;
-
-namespace {container.ContainingType.ContainingNamespace.ToDisplayString()}
-{{
-    {SyntaxFacts.GetText(container.ContainingType.DeclaredAccessibility)} partial class {container.ContainingType.Name}
-    {{".TrimStart('\r', '\n'));
-                
-                foreach (DataStorageField field in container.Fields)
+            IncrementalValuesProvider<Model> modelProvider = context.SyntaxProvider.ForAttributeWithMetadataName(
+                DataStorageAttributeGenerator.AttributeFullName,
+                predicate: static (node, ct) => 
+                    node.FirstAncestorOrSelf<FieldDeclarationSyntax>() is not null,
+                transform: static (context, ct) =>
                 {
-                    string propName = GeneratePropName(field.Field.Name);
-                    ImmutableArray<TypedConstant> args = field.Data.ConstructorArguments;
-                    string referenceText;
-                    if (args.Length == 2)
+                    // we know we are on an annotated field declaration which is huge! but now we need
+                    // to transform to a cacheable type.
+                    AttributeData attr = context.Attributes.First();
+                    string dataStorageKey;
+                    string? scope = null; 
+                    if (attr.ConstructorArguments.Length == 2)
                     {
                         // session, key
-                        referenceText = $"{args[0].Value}.DataStorage[{args[1].ToCSharpString()}]";
+                        dataStorageKey = attr.ConstructorArguments[1].ToCSharpString();
                     }
                     else
                     {
                         // session, scope, key
-                        referenceText = $"{args[0].Value}.DataStorage[{args[1].ToCSharpString()}, {args[2].ToCSharpString()}]";
+                        scope = attr.ConstructorArguments[1].ToCSharpString();
+                        dataStorageKey = attr.ConstructorArguments[2].ToCSharpString();
                     }
 
-                    source.AppendLine($@"
-        [System.CodeDom.Compiler.GeneratedCode(tool: ""{nameof(DataStoragePropertyGenerator)}"", version: null)]
-        private DataStorageElement {propName}
-        {{
-            get => {referenceText};
-            set => {referenceText} = value;
-        }}");
+                    return new Model(
+                        context.TargetSymbol.ContainingNamespace.ToDisplayString(),
+                        SyntaxFacts.GetText(context.TargetSymbol.ContainingType.DeclaredAccessibility),
+                        context.TargetSymbol.ContainingType.Name,
+                        GeneratePropName(context.TargetSymbol.Name),
+                        (string)attr.ConstructorArguments[0].Value!,
+                        scope,
+                        dataStorageKey
+                    );
                 }
+            );
 
-                source.AppendLine(@"
-    }
-}".TrimStart('\r', '\n'));
-                context.AddSource(container.ContainingType.Name + ".g.cs", SourceText.From(source.ToString(), Encoding.UTF8));
+            context.RegisterSourceOutput(modelProvider, GenerateSource);
+        }
+
+        private void GenerateSource(SourceProductionContext context, Model model)
+        {
+            StringBuilder source = new($$"""
+                #nullable enable annotations
+
+                using Archipelago.MultiClient.Net.Models;
+
+                namespace {{model.ContainingNamespace}}
+                {
+                    {{model.Accessibility}} partial class {{model.ClassName}}
+                    {
+
+                """
+            );
+
+            string referenceText;
+            if (model.Scope != null)
+            {
+                // session, scope, key
+                referenceText = $"{model.SessionReference}.DataStorage[{model.Scope}, {model.DataStorageKey}]";
             }
+            else
+            {
+                // session, key
+                referenceText = $"{model.SessionReference}.DataStorage[{model.DataStorageKey}]";
+            }
+
+            source.AppendLine($$"""
+                        [System.CodeDom.Compiler.GeneratedCode(tool: "{{nameof(DataStoragePropertyGenerator)}}", version: null)]
+                        private DataStorageElement {{model.PropertyName}}
+                        {
+                            get => {{referenceText}};
+                            set => {{referenceText}} = value;
+                        }
+                """);
+
+            source.AppendLine("""
+                    }
+                }
+                """);
+            context.AddSource(model.ClassName + "_" + model.PropertyName + ".g.cs", SourceText.From(source.ToString(), Encoding.UTF8));
         }
 
         public static string GeneratePropName(string fieldName)

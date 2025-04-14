@@ -192,7 +192,7 @@ namespace MyClient
     }
 }";
 
-            string generatedSource = @"#nullable enable annotations
+            string generatedSource1 = @"#nullable enable annotations
 
 using Archipelago.MultiClient.Net.Models;
 
@@ -206,7 +206,18 @@ namespace MyClient
             get => session.DataStorage[Archipelago.MultiClient.Net.Enums.Scope.Slot, ""MyData""];
             set => session.DataStorage[Archipelago.MultiClient.Net.Enums.Scope.Slot, ""MyData""] = value;
         }
+    }
+}
+";
 
+            string generatedSource2 = @"#nullable enable annotations
+
+using Archipelago.MultiClient.Net.Models;
+
+namespace MyClient
+{
+    internal partial class MyClass
+    {
         [System.CodeDom.Compiler.GeneratedCode(tool: ""DataStoragePropertyGenerator"", version: null)]
         private DataStorageElement MyGlobalData
         {
@@ -226,7 +237,8 @@ namespace MyClient
                     GeneratedSources =
                     {
                         (typeof(DataStorageAttributeGenerator), "DataStoragePropertyAttribute.g.cs", DataStorageAttributeGenerator.AttributeSource),
-                        (typeof(DataStoragePropertyGenerator), "MyClass.g.cs", generatedSource)
+                        (typeof(DataStoragePropertyGenerator), "MyClass_MyData.g.cs", generatedSource1),
+                        (typeof(DataStoragePropertyGenerator), "MyClass_MyGlobalData.g.cs", generatedSource2),
                     }
                 }
             }.RunAsync();
