@@ -19,9 +19,12 @@ namespace Archipelago.MultiClient.Net.Analyzers.Fixes
     {
         public const string FixKeyConvertItemFlagsSwitch = "ConvertItemFlagsSwitch";
 
-        public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArray.Create(
+        public override ImmutableArray<string> FixableDiagnosticIds => [
             Constants.DiagnosticPrefix + "003"
-        );
+        ];
+
+        // explicit optout from fix all - not safe because of fallthrough cases
+        public override FixAllProvider? GetFixAllProvider() => null;
 
         public override async Task RegisterCodeFixesAsync(CodeFixContext context)
         {

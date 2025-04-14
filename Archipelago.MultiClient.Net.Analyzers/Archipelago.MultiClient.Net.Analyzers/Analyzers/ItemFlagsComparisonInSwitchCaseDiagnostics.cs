@@ -53,12 +53,6 @@ namespace Archipelago.MultiClient.Net.Analyzers.Analyzers
         private void AnalyzeSwitchExpression(SyntaxNodeAnalysisContext context)
         {
             SwitchExpressionSyntax syntax = (SwitchExpressionSyntax)context.Node;
-            int i = syntax.Kind() switch
-            {
-                SyntaxKind.AbstractKeyword => 0,
-                SyntaxKind k when (int)k > 50 => 2,
-                _ => 1
-            };
             foreach (SwitchExpressionArmSyntax arm in syntax.Arms)
             {
                 if (arm.Pattern is ConstantPatternSyntax { Expression: MemberAccessExpressionSyntax ma } cp)

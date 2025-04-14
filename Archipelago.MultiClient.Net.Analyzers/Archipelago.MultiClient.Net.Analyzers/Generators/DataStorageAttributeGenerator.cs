@@ -5,7 +5,7 @@ using System.Text;
 namespace Archipelago.MultiClient.Net.Analyzers.Generators
 {
     [Generator(LanguageNames.CSharp)]
-    public class DataStorageAttributeGenerator : ISourceGenerator
+    public class DataStorageAttributeGenerator : IIncrementalGenerator
     {
         public const string AttributeFullName = "Archipelago.MultiClient.Net.DataStoragePropertyAttribute";
 
@@ -38,9 +38,9 @@ namespace Archipelago.MultiClient.Net
 }
 ";
 
-        public void Initialize(GeneratorInitializationContext context)
+        public void Initialize(IncrementalGeneratorInitializationContext context)
         {
-            context.RegisterForPostInitialization(postInit =>
+            context.RegisterPostInitializationOutput(postInit =>
             {
                 postInit.AddSource("DataStoragePropertyAttribute.g.cs", SourceText.From(AttributeSource, Encoding.UTF8));
             });

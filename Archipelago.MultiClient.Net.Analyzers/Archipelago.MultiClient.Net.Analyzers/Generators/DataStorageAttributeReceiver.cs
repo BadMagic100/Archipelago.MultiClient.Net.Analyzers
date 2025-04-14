@@ -12,7 +12,7 @@ namespace Archipelago.MultiClient.Net.Analyzers.Generators
 
     internal class DataStorageAttributeReceiver : ISyntaxContextReceiver
     {
-        private List<DataStorageContainer> containers = new();
+        private readonly List<DataStorageContainer> containers = [];
         public IReadOnlyList<DataStorageContainer> Containers => containers;
 
         public void OnVisitSyntaxNode(GeneratorSyntaxContext context)
