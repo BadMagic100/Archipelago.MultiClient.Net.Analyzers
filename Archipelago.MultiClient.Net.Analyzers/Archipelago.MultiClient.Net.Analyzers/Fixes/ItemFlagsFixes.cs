@@ -1,4 +1,5 @@
-﻿using Microsoft.CodeAnalysis;
+﻿using Archipelago.MultiClient.Net.Analyzers.Util;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp;
@@ -61,10 +62,9 @@ namespace Archipelago.MultiClient.Net.Analyzers.Fixes
             {
                 context.RegisterCodeFix(
                     CodeAction.Create(
-                        title: "Use HasFlag",
-                        createChangedDocument: c => UseHasFlagAsync(
+                        title: "Use flag comparison",
+                        createChangedDocument: c => UseFlagComparisonAsync(
                             document: context.Document,
-                            oldRoot: root,
                             comparison: comparison,
                             dynamicPart: rhs,
                             constPart: lhs,
@@ -79,10 +79,9 @@ namespace Archipelago.MultiClient.Net.Analyzers.Fixes
             {
                 context.RegisterCodeFix(
                     CodeAction.Create(
-                        title: "Use HasFlag",
-                        createChangedDocument: c => UseHasFlagAsync(
+                        title: "Use flag comparison",
+                        createChangedDocument: c => UseFlagComparisonAsync(
                             document: context.Document,
-                            oldRoot: root,
                             comparison: comparison,
                             dynamicPart: lhs,
                             constPart: rhs,
@@ -104,23 +103,23 @@ namespace Archipelago.MultiClient.Net.Analyzers.Fixes
             return false;
         }
 
-        private async Task<Document> UseHasFlagAsync(
+        private async Task<Document> UseFlagComparisonAsync(
             Document document,
-            SyntaxNode oldRoot,
             BinaryExpressionSyntax comparison,
             ExpressionSyntax dynamicPart,
             ExpressionSyntax constPart,
             CancellationToken cancellationToken)
         {
             DocumentEditor editor = await DocumentEditor.CreateAsync(document, cancellationToken);
+            Compilation? compilation = await document.Project.GetCompilationAsync(cancellationToken);
 
-            SyntaxNode hasFlagAccess = editor.Generator.MemberAccessExpression(dynamicPart, "HasFlag");
-            SyntaxNode hasFlagCall = editor.Generator.InvocationExpression(hasFlagAccess, constPart);
+            ExpressionSyntax newExpression = ArchipelagoSyntaxFactory.CreateFlagComparison(
+                compilation,
+                dynamicPart,
+                constPart);
 
-            editor.ReplaceNode(comparison, hasFlagCall.WithTriviaFrom(comparison));
-
-            Document newDoc = editor.GetChangedDocument();
-            return newDoc;
+            editor.ReplaceNode(comparison, newExpression.WithTriviaFrom(comparison));
+            return editor.GetChangedDocument();
         }
     }
 }

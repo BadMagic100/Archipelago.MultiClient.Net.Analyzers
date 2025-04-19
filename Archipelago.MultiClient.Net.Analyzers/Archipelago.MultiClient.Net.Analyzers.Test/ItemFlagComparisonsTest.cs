@@ -1,4 +1,5 @@
-﻿using Microsoft.CodeAnalysis.Testing;
+﻿using Archipelago.MultiClient.Net.Analyzers.Test.Util;
+using Microsoft.CodeAnalysis.Testing;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Threading.Tasks;
 using VerifyCS = Archipelago.MultiClient.Net.Analyzers.Test.CSharpCodeFixVerifier<
@@ -57,6 +58,29 @@ namespace Archipelago.MultiClient.Net.Analyzers.Test
                         {
                             ItemFlags i = ItemFlags.Advancement;
                             return i.HasFlag(ItemFlags.Advancement);
+                        }
+                    }
+                }
+                """;
+
+            await VerifyCS.VerifyAnalyzerAsync(test);
+        }
+
+        [TestMethod]
+        public async Task VerifyBitwiseAndComparisonYieldsNoDiagnostic()
+        {
+            string test = """
+                using System;
+                using Archipelago.MultiClient.Net.Enums;
+
+                namespace MyClient
+                {
+                    class MyClass
+                    {
+                        public bool Test()
+                        {
+                            ItemFlags i = ItemFlags.Advancement;
+                            return (i & ItemFlags.Advancement) == ItemFlags.Advancement;
                         }
                     }
                 }
@@ -237,6 +261,54 @@ namespace Archipelago.MultiClient.Net.Analyzers.Test
         }
 
         [TestMethod]
+        public async Task VerifyFixLhsIsMemberAccess_Net35()
+        {
+            string test = """
+                using System;
+                using Archipelago.MultiClient.Net.Enums;
+
+                namespace MyClient
+                {
+                    class MyClass
+                    {
+                        public bool Test()
+                        {
+                            ItemFlags i = ItemFlags.Advancement;
+                            return {|#0:ItemFlags.Advancement == i|};
+                        }
+                    }
+                }
+                """;
+            string fixTest = """
+                using System;
+                using Archipelago.MultiClient.Net.Enums;
+
+                namespace MyClient
+                {
+                    class MyClass
+                    {
+                        public bool Test()
+                        {
+                            ItemFlags i = ItemFlags.Advancement;
+                            return (i & ItemFlags.Advancement) == ItemFlags.Advancement;
+                        }
+                    }
+                }
+                """;
+
+            var testConfig = new VerifyCS.Test
+            {
+                TestCode = test,
+                FixedCode = fixTest,
+                ReferenceAssemblies = ReferenceAssemblies.NetFramework.Net35.Default.WithMultiClient(),
+            };
+
+            DiagnosticResult expected = VerifyCS.Diagnostic("MULTICLIENT002").WithLocation(0);
+            testConfig.ExpectedDiagnostics.Add(expected);
+            await testConfig.RunAsync();
+        }
+
+        [TestMethod]
         public async Task VerifyFixRhsIsMemberAccess()
         {
             string test = """
@@ -274,6 +346,54 @@ namespace Archipelago.MultiClient.Net.Analyzers.Test
 
             DiagnosticResult expected = VerifyCS.Diagnostic("MULTICLIENT002").WithLocation(0);
             await VerifyCS.VerifyCodeFixAsync(test, expected, fixTest);
+        }
+
+        [TestMethod]
+        public async Task VerifyFixRhsIsMemberAccess_Net35()
+        {
+            string test = """
+                using System;
+                using Archipelago.MultiClient.Net.Enums;
+
+                namespace MyClient
+                {
+                    class MyClass
+                    {
+                        public bool Test()
+                        {
+                            ItemFlags i = ItemFlags.Advancement;
+                            return {|#0:i == ItemFlags.Advancement|};
+                        }
+                    }
+                }
+                """;
+            string fixTest = """
+                using System;
+                using Archipelago.MultiClient.Net.Enums;
+
+                namespace MyClient
+                {
+                    class MyClass
+                    {
+                        public bool Test()
+                        {
+                            ItemFlags i = ItemFlags.Advancement;
+                            return (i & ItemFlags.Advancement) == ItemFlags.Advancement;
+                        }
+                    }
+                }
+                """;
+
+            var testConfig = new VerifyCS.Test
+            {
+                TestCode = test,
+                FixedCode = fixTest,
+                ReferenceAssemblies = ReferenceAssemblies.NetFramework.Net35.Default.WithMultiClient()
+            };
+
+            DiagnosticResult expected = VerifyCS.Diagnostic("MULTICLIENT002").WithLocation(0);
+            testConfig.ExpectedDiagnostics.Add(expected);
+            await testConfig.RunAsync();
         }
     }
 }
