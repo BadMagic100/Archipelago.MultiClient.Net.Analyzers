@@ -32,11 +32,27 @@ namespace Archipelago.MultiClient.Net.Analyzers.Analyzers
             context.RegisterSyntaxNodeAction(AnalyzeComparison, SyntaxKind.EqualsExpression);
         }
 
+        private static bool IsBitwiseAndExpression(ExpressionSyntax expr)
+        {
+            // Unwrap parentheses first
+            while (expr is ParenthesizedExpressionSyntax pes)
+            {
+                expr = pes.Expression;
+            }
+            return expr is BinaryExpressionSyntax { OperatorToken.RawKind: (int)SyntaxKind.AmpersandToken };
+        }
+
         private void AnalyzeComparison(SyntaxNodeAnalysisContext context)
         {
             BinaryExpressionSyntax syntax = (BinaryExpressionSyntax)context.Node;
             ExpressionSyntax lhs = syntax.Left;
             ExpressionSyntax rhs = syntax.Right;
+
+            // Skip if either side is a bitwise & expression
+            if (IsBitwiseAndExpression(lhs) || IsBitwiseAndExpression(rhs))
+            {
+                return;
+            }
 
             // we apply the diagnostic if we are comparing 2 itemflags.
             TypeInfo leftHandType = context.SemanticModel.GetTypeInfo(lhs, context.CancellationToken);

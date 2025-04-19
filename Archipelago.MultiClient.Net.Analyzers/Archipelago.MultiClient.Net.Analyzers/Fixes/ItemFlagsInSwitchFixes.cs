@@ -54,8 +54,8 @@ namespace Archipelago.MultiClient.Net.Analyzers.Fixes
 
             context.RegisterCodeFix(
                 CodeAction.Create(
-                    title: "Convert case to use HasFlag",
-                    createChangedDocument: c => ConvertCaseToHasFlag(
+                    title: "Convert case to use flag comparison",
+                    createChangedDocument: c => ConvertCaseToFlagComparison(
                         document: context.Document,
                         caseLabel: caseLabel,
                         cancellationToken: c
@@ -79,8 +79,8 @@ namespace Archipelago.MultiClient.Net.Analyzers.Fixes
 
             context.RegisterCodeFix(
                 CodeAction.Create(
-                    title: "Convert pattern to use HasFlag",
-                    createChangedDocument: c => ConvertConstantPatternArmToHasFlag(
+                    title: "Convert pattern to use flag comparison",
+                    createChangedDocument: c => ConvertConstantPatternArmToFlagComparison(
                         document: context.Document,
                         arm: arm,
                         constPattern: constPattern,
@@ -93,7 +93,7 @@ namespace Archipelago.MultiClient.Net.Analyzers.Fixes
             return true;
         }
 
-        private async Task<Document> ConvertCaseToHasFlag(
+        private async Task<Document> ConvertCaseToFlagComparison(
             Document document,
             CaseSwitchLabelSyntax caseLabel,
             CancellationToken cancellationToken)
@@ -101,7 +101,7 @@ namespace Archipelago.MultiClient.Net.Analyzers.Fixes
             DocumentEditor editor = await DocumentEditor.CreateAsync(document, cancellationToken);
             string variableName = NameGenerator.GetUniqueVariableName("f", editor.SemanticModel, caseLabel.SpanStart);
 
-            var (pattern, whenClause) = RewriteConstantMemberAccessToPatternMatch(caseLabel.Value, variableName);
+            var (pattern, whenClause) = await RewriteConstantMemberAccessToPatternMatch(document, caseLabel.Value, variableName, cancellationToken);
             CasePatternSwitchLabelSyntax newCaseLabel = SyntaxFactory.CasePatternSwitchLabel(
                 pattern, whenClause, SyntaxFactory.Token(SyntaxKind.ColonToken));
 
@@ -111,7 +111,7 @@ namespace Archipelago.MultiClient.Net.Analyzers.Fixes
             return newDoc;
         }
 
-        private async Task<Document> ConvertConstantPatternArmToHasFlag(
+        private async Task<Document> ConvertConstantPatternArmToFlagComparison(
             Document document,
             SwitchExpressionArmSyntax arm,
             ConstantPatternSyntax constPattern,
@@ -120,7 +120,7 @@ namespace Archipelago.MultiClient.Net.Analyzers.Fixes
             DocumentEditor editor = await DocumentEditor.CreateAsync(document, cancellationToken);
             string variableName = NameGenerator.GetUniqueVariableName("f", editor.SemanticModel, constPattern.SpanStart);
 
-            var (pattern, whenClause) = RewriteConstantMemberAccessToPatternMatch(constPattern.Expression, variableName);
+            var (pattern, whenClause) = await RewriteConstantMemberAccessToPatternMatch(document, constPattern.Expression, variableName, cancellationToken);
 
             SwitchExpressionArmSyntax newArm = SyntaxFactory.SwitchExpressionArm(pattern, whenClause, arm.Expression);
             editor.ReplaceNode(arm, newArm);
@@ -129,7 +129,11 @@ namespace Archipelago.MultiClient.Net.Analyzers.Fixes
             return newDoc;
         }
 
-        private (PatternSyntax, WhenClauseSyntax) RewriteConstantMemberAccessToPatternMatch(ExpressionSyntax expr, string newVarName)
+        private async Task<(PatternSyntax, WhenClauseSyntax)> RewriteConstantMemberAccessToPatternMatch(
+            Document document,
+            ExpressionSyntax expr, 
+            string newVarName,
+            CancellationToken cancellationToken)
         {
             SingleVariableDesignationSyntax variableDesignation = SyntaxFactory.SingleVariableDesignation(SyntaxFactory.Identifier(newVarName));
             DeclarationPatternSyntax declPattern = SyntaxFactory.DeclarationPattern(
@@ -137,18 +141,13 @@ namespace Archipelago.MultiClient.Net.Analyzers.Fixes
                 variableDesignation
             );
 
-            WhenClauseSyntax whenClause = SyntaxFactory.WhenClause(
-                SyntaxFactory.InvocationExpression(
-                    SyntaxFactory.MemberAccessExpression(
-                        SyntaxKind.SimpleMemberAccessExpression,
-                        SyntaxFactory.IdentifierName(newVarName),
-                        SyntaxFactory.IdentifierName("HasFlag")
-                    ),
-                    SyntaxFactory.ArgumentList(SyntaxFactory.SingletonSeparatedList(SyntaxFactory.Argument(expr)))
-                )
-            );
+            Compilation? compilation = await document.Project.GetCompilationAsync(cancellationToken);
+            ExpressionSyntax comparison = ArchipelagoSyntaxFactory.CreateFlagComparison(
+                compilation,
+                SyntaxFactory.IdentifierName(newVarName),
+                expr);
 
-            return (declPattern, whenClause);
+            return (declPattern, SyntaxFactory.WhenClause(comparison));
         }
     }
 }
