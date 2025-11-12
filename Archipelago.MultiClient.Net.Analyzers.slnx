@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/github/">
+    <File Path=".github/workflows/build.yml" />
+	<File Path=".github/dependabot.yml" />
+  </Folder>
+  <Folder Name="/config/">
+    <File Path="global.json" />
+  </Folder>
+  <Project Path="Archipelago.MultiClient.Net.Analyzers/Archipelago.MultiClient.Net.Analyzers.Package/Archipelago.MultiClient.Net.Analyzers.Package.csproj" />
+  <Project Path="Archipelago.MultiClient.Net.Analyzers/Archipelago.MultiClient.Net.Analyzers.Test/Archipelago.MultiClient.Net.Analyzers.Test.csproj" />
+  <Project Path="Archipelago.MultiClient.Net.Analyzers/Archipelago.MultiClient.Net.Analyzers/Archipelago.MultiClient.Net.Analyzers.csproj" />
+</Solution>
