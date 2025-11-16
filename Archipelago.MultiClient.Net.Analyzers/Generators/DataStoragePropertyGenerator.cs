@@ -5,109 +5,108 @@ using Microsoft.CodeAnalysis.Text;
 using System.Linq;
 using System.Text;
 
-namespace Archipelago.MultiClient.Net.Analyzers.Generators
+namespace Archipelago.MultiClient.Net.Analyzers.Generators;
+
+[Generator(LanguageNames.CSharp)]
+public class DataStoragePropertyGenerator : IIncrementalGenerator
 {
-    [Generator(LanguageNames.CSharp)]
-    public class DataStoragePropertyGenerator : IIncrementalGenerator
+    private record Model(
+        string ContainingNamespace,
+        string Accessibility,
+        string ClassName,
+        string PropertyName,
+        string SessionReference,
+        string? Scope,
+        string DataStorageKey
+    );
+
+    public void Initialize(IncrementalGeneratorInitializationContext context)
     {
-        private record Model(
-            string ContainingNamespace,
-            string Accessibility,
-            string ClassName,
-            string PropertyName,
-            string SessionReference,
-            string? Scope,
-            string DataStorageKey
+        IncrementalValuesProvider<Model> modelProvider = context.SyntaxProvider.ForAttributeWithMetadataName(
+            DataStorageAttributeGenerator.AttributeFullName,
+            predicate: static (node, ct) => 
+                node.FirstAncestorOrSelf<FieldDeclarationSyntax>() is not null,
+            transform: static (context, ct) =>
+            {
+                // we know we are on an annotated field declaration which is huge! but now we need
+                // to transform to a cacheable type.
+                AttributeData attr = context.Attributes.First();
+                string dataStorageKey;
+                string? scope = null; 
+                if (attr.ConstructorArguments.Length == 2)
+                {
+                    // session, key
+                    dataStorageKey = attr.ConstructorArguments[1].ToCSharpString();
+                }
+                else
+                {
+                    // session, scope, key
+                    scope = attr.ConstructorArguments[1].ToCSharpString();
+                    dataStorageKey = attr.ConstructorArguments[2].ToCSharpString();
+                }
+
+                return new Model(
+                    context.TargetSymbol.ContainingNamespace.ToDisplayString(),
+                    SyntaxFacts.GetText(context.TargetSymbol.ContainingType.DeclaredAccessibility),
+                    context.TargetSymbol.ContainingType.Name,
+                    GeneratePropName(context.TargetSymbol.Name),
+                    (string)attr.ConstructorArguments[0].Value!,
+                    scope,
+                    dataStorageKey
+                );
+            }
         );
 
-        public void Initialize(IncrementalGeneratorInitializationContext context)
-        {
-            IncrementalValuesProvider<Model> modelProvider = context.SyntaxProvider.ForAttributeWithMetadataName(
-                DataStorageAttributeGenerator.AttributeFullName,
-                predicate: static (node, ct) => 
-                    node.FirstAncestorOrSelf<FieldDeclarationSyntax>() is not null,
-                transform: static (context, ct) =>
-                {
-                    // we know we are on an annotated field declaration which is huge! but now we need
-                    // to transform to a cacheable type.
-                    AttributeData attr = context.Attributes.First();
-                    string dataStorageKey;
-                    string? scope = null; 
-                    if (attr.ConstructorArguments.Length == 2)
-                    {
-                        // session, key
-                        dataStorageKey = attr.ConstructorArguments[1].ToCSharpString();
-                    }
-                    else
-                    {
-                        // session, scope, key
-                        scope = attr.ConstructorArguments[1].ToCSharpString();
-                        dataStorageKey = attr.ConstructorArguments[2].ToCSharpString();
-                    }
+        context.RegisterSourceOutput(modelProvider, GenerateSource);
+    }
 
-                    return new Model(
-                        context.TargetSymbol.ContainingNamespace.ToDisplayString(),
-                        SyntaxFacts.GetText(context.TargetSymbol.ContainingType.DeclaredAccessibility),
-                        context.TargetSymbol.ContainingType.Name,
-                        GeneratePropName(context.TargetSymbol.Name),
-                        (string)attr.ConstructorArguments[0].Value!,
-                        scope,
-                        dataStorageKey
-                    );
-                }
-            );
+    private void GenerateSource(SourceProductionContext context, Model model)
+    {
+        StringBuilder source = new($$"""
+            #nullable enable annotations
 
-            context.RegisterSourceOutput(modelProvider, GenerateSource);
-        }
+            using Archipelago.MultiClient.Net.Models;
 
-        private void GenerateSource(SourceProductionContext context, Model model)
-        {
-            StringBuilder source = new($$"""
-                #nullable enable annotations
-
-                using Archipelago.MultiClient.Net.Models;
-
-                namespace {{model.ContainingNamespace}}
-                {
-                    {{model.Accessibility}} partial class {{model.ClassName}}
-                    {
-
-                """
-            );
-
-            string referenceText;
-            if (model.Scope != null)
+            namespace {{model.ContainingNamespace}}
             {
-                // session, scope, key
-                referenceText = $"{model.SessionReference}.DataStorage[{model.Scope}, {model.DataStorageKey}]";
-            }
-            else
-            {
-                // session, key
-                referenceText = $"{model.SessionReference}.DataStorage[{model.DataStorageKey}]";
-            }
+                {{model.Accessibility}} partial class {{model.ClassName}}
+                {
 
-            source.AppendLine($$"""
-                        [System.CodeDom.Compiler.GeneratedCode(tool: "{{nameof(DataStoragePropertyGenerator)}}", version: null)]
-                        private DataStorageElement {{model.PropertyName}}
-                        {
-                            get => {{referenceText}};
-                            set => {{referenceText}} = value;
-                        }
-                """);
+            """
+        );
 
-            source.AppendLine("""
-                    }
-                }
-                """);
-            context.AddSource(model.ClassName + "_" + model.PropertyName + ".g.cs", SourceText.From(source.ToString(), Encoding.UTF8));
-        }
-
-        public static string GeneratePropName(string fieldName)
+        string referenceText;
+        if (model.Scope != null)
         {
-            string propName = fieldName.Trim('_');
-            propName = char.ToUpper(propName[0]) + propName[1..];
-            return propName;
+            // session, scope, key
+            referenceText = $"{model.SessionReference}.DataStorage[{model.Scope}, {model.DataStorageKey}]";
         }
+        else
+        {
+            // session, key
+            referenceText = $"{model.SessionReference}.DataStorage[{model.DataStorageKey}]";
+        }
+
+        source.AppendLine($$"""
+                    [System.CodeDom.Compiler.GeneratedCode(tool: "{{nameof(DataStoragePropertyGenerator)}}", version: null)]
+                    private DataStorageElement {{model.PropertyName}}
+                    {
+                        get => {{referenceText}};
+                        set => {{referenceText}} = value;
+                    }
+            """);
+
+        source.AppendLine("""
+                }
+            }
+            """);
+        context.AddSource(model.ClassName + "_" + model.PropertyName + ".g.cs", SourceText.From(source.ToString(), Encoding.UTF8));
+    }
+
+    public static string GeneratePropName(string fieldName)
+    {
+        string propName = fieldName.Trim('_');
+        propName = char.ToUpper(propName[0]) + propName[1..];
+        return propName;
     }
 }

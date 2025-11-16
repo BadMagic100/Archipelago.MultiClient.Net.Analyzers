@@ -1,7 +1,6 @@
-﻿namespace Archipelago.MultiClient.Net.Analyzers
+﻿namespace Archipelago.MultiClient.Net.Analyzers;
+
+internal static class Constants
 {
-    internal static class Constants
-    {
-        public const string DiagnosticPrefix = "MULTICLIENT";
-    }
+    public const string DiagnosticPrefix = "MULTICLIENT";
 }
