@@ -17,7 +17,7 @@ public class DataStorageAttributeGenerator : IIncrementalGenerator
 
         namespace Archipelago.MultiClient.Net
         {
-            [AttributeUsage(AttributeTargets.Field, Inherited = false, AllowMultiple = false)]
+            [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, Inherited = false, AllowMultiple = false)]
             internal sealed class DataStoragePropertyAttribute : Attribute
             {
                 public string? SessionVariable { get; }

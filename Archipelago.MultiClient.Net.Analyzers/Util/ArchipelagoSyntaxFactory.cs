@@ -10,9 +10,11 @@ namespace Archipelago.MultiClient.Net.Analyzers.Util;
 
 internal static class ArchipelagoSyntaxFactory
 {
-    public static FieldDeclarationSyntax CreateDataStorageProperty(
+    public static SyntaxNode CreateDataStorageProperty(
+        LanguageVersion? targetLanguageVersion,
         SyntaxGenerator generator,
-        string fieldName, 
+        string fieldName,
+        string propName,
         string sessionName,
         IEnumerable<ArgumentSyntax> dataStorageAccessArgs)
     {
@@ -23,13 +25,26 @@ internal static class ArchipelagoSyntaxFactory
             .. convertedAttributeArgs
         ];
 
-        SyntaxNode decl = generator.FieldDeclaration(
-            fieldName, 
-            generator.IdentifierName("DataStorageElement"), 
-            Accessibility.Private, 
-            DeclarationModifiers.ReadOnly
-        );
-        return (FieldDeclarationSyntax) generator.AddAttributes(
+        SyntaxNode decl;
+        // if partial properties are not supported, make a field, otherwise a read/write partial property
+        if (targetLanguageVersion == null || targetLanguageVersion < LanguageVersion.CSharp13)
+        {
+            decl = generator.FieldDeclaration(
+                fieldName,
+                generator.IdentifierName("DataStorageElement"),
+                Accessibility.Private,
+                DeclarationModifiers.ReadOnly
+            );
+        }
+        else
+        {
+            decl = ((PropertyDeclarationSyntax)generator.PropertyDeclaration(
+                propName,
+                generator.IdentifierName("DataStorageElement"),
+                Accessibility.Private
+            )).AddModifiers(Token(SyntaxKind.PartialKeyword));
+        }
+        return generator.AddAttributes(
             decl,
             generator.Attribute("DataStorageProperty", attributeArgs)
         );

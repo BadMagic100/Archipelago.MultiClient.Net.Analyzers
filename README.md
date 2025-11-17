@@ -13,9 +13,12 @@ network protocol allows batching several data storage operations in an atomic fa
 is re-assigned back to the `DataStorageHelper`. This means that storing a `DataStorageElement` into a variable can
 cause undesirable side effects on the element, as well as prevent it from being sent to the server at all. Instead,
 it is recommended to use a compound assignment operator to apply edits directly to the `DataStorageHelper`.
+Alternatively, a [source generator](#data-storage-properties) is included to create a safe thin wrapper around
+the DataStorage access.
 
-This analyzer also offers a corresponding fix action "Make DataStorage access inline" on variable declarations, which
-will remove the offending declaration and inline it at all usage sites.
+This analyzer also offers a corresponding fix action "Make DataStorage access inline" on variable declarations which
+will remove the offending declaration and inline it at all usage sites, as well as a "Make DataStorage access a 
+DataStorageProperty" fix action which will use the source generator.
 
 **Incorrect Code:**
 
@@ -111,9 +114,31 @@ for repeated access. Unfortunately, this does not work for most use cases, and t
 to prevent misuse of the API. This package offers a source generator to create a thin wrapper around the data storage API
 which is also considered an acceptable use by the MULTICLIENT001 analyzer. Note in the example below that you must have a
 session defined in a scope that is available to members of the containing class - again, this is only a thin wrapper so you
-have bring your own session.
+have bring your own session. The generator supports generating properties based off of an annotated field, or using partial
+properties in language versions where they are supported.
 
-**Example Usage:**
+**Example Usage (using partial properties, C# 13+):**
+
+```cs
+partial class MyClass
+{
+    private ArchipelagoSession session;
+
+    [DataStorageProperty(nameof(session), Scope.Slot, "MyScopedData")]
+    private partial DataStorageElement MyScopedData { get; set; }
+
+    [DataStorageProperty(nameof(session), "MyGlobalData")]
+    private partial DataStorageElement MyGlobalData { get; set; }
+
+    public void DoStuff()
+    {
+        MyScopedData.Initialize(0);
+        MyGlobalData += 2;
+    }
+}
+```
+
+**Example Usage (C# 12 and below):**
 
 ```cs
 partial class MyClass

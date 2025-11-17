@@ -9,7 +9,7 @@
 
   <PropertyGroup>
     <PackageId>Archipelago.MultiClient.Net.Analyzers</PackageId>
-    <PackageVersion>1.5.0</PackageVersion>
+    <PackageVersion>2.0.0</PackageVersion>
     <Authors>BadMagic</Authors>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>

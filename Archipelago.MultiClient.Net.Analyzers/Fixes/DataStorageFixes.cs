@@ -8,6 +8,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Editing;
 using Microsoft.CodeAnalysis.FindSymbols;
 using Microsoft.CodeAnalysis.Formatting;
+using Microsoft.CodeAnalysis.Options;
 using Microsoft.CodeAnalysis.Text;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -155,6 +156,7 @@ public class DataStorageFixes : CodeFixProvider
         IEnumerable<ArgumentSyntax> dataStorageAccessArguments,
         CancellationToken cancellationToken)
     {
+        LanguageVersion? targetLanguageVersion = (document.Project.ParseOptions as CSharpParseOptions)?.LanguageVersion;
         DocumentEditor editor = await DocumentEditor.CreateAsync(document, cancellationToken);
 
         string localName = declarator.Identifier.Text;
@@ -163,14 +165,16 @@ public class DataStorageFixes : CodeFixProvider
 
         // make the field backing the property (with annotation).
         SyntaxNode sessionNode = oldRoot.FindNode(sessionSymbol.Locations[0].SourceSpan);
-        SyntaxNode newFieldNode = ArchipelagoSyntaxFactory.CreateDataStorageProperty(
+        SyntaxNode newFieldOrPropNode = ArchipelagoSyntaxFactory.CreateDataStorageProperty(
+            targetLanguageVersion,
             editor.Generator,
             fieldName,
+            propName,
             sessionSymbol.Name, 
             dataStorageAccessArguments
         ).WithAdditionalAnnotations(Formatter.Annotation);
 
-        editor.InsertAfter(sessionNode, newFieldNode.WithTriviaFrom(sessionNode));
+        editor.InsertAfter(sessionNode, newFieldOrPropNode.WithTriviaFrom(sessionNode));
 
         // make the containing class partial, if needed
         ClassDeclarationSyntax? classDecl = sessionNode.FirstAncestorOrSelf<ClassDeclarationSyntax>();

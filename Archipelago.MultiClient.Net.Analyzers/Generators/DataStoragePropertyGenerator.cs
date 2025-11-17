@@ -12,9 +12,11 @@ public class DataStoragePropertyGenerator : IIncrementalGenerator
 {
     private record Model(
         string ContainingNamespace,
-        string Accessibility,
+        string ClassAccessibility,
         string ClassName,
+        string PropertyAccessibility,
         string PropertyName,
+        bool IsTargetPartialProperty,
         string SessionReference,
         string? Scope,
         string DataStorageKey
@@ -25,7 +27,7 @@ public class DataStoragePropertyGenerator : IIncrementalGenerator
         IncrementalValuesProvider<Model> modelProvider = context.SyntaxProvider.ForAttributeWithMetadataName(
             DataStorageAttributeGenerator.AttributeFullName,
             predicate: static (node, ct) => 
-                node.FirstAncestorOrSelf<FieldDeclarationSyntax>() is not null,
+                node.FirstAncestorOrSelf<FieldDeclarationSyntax>() is not null || node.FirstAncestorOrSelf<PropertyDeclarationSyntax>() is not null,
             transform: static (context, ct) =>
             {
                 // we know we are on an annotated field declaration which is huge! but now we need
@@ -49,7 +51,9 @@ public class DataStoragePropertyGenerator : IIncrementalGenerator
                     context.TargetSymbol.ContainingNamespace.ToDisplayString(),
                     SyntaxFacts.GetText(context.TargetSymbol.ContainingType.DeclaredAccessibility),
                     context.TargetSymbol.ContainingType.Name,
-                    GeneratePropName(context.TargetSymbol.Name),
+                    GeneratePropAccessibility(context.TargetSymbol),
+                    GeneratePropName(context.TargetSymbol),
+                    context.TargetSymbol.Kind == SymbolKind.Property,
                     (string)attr.ConstructorArguments[0].Value!,
                     scope,
                     dataStorageKey
@@ -69,7 +73,7 @@ public class DataStoragePropertyGenerator : IIncrementalGenerator
 
             namespace {{model.ContainingNamespace}}
             {
-                {{model.Accessibility}} partial class {{model.ClassName}}
+                {{model.ClassAccessibility}} partial class {{model.ClassName}}
                 {
 
             """
@@ -87,20 +91,41 @@ public class DataStoragePropertyGenerator : IIncrementalGenerator
             referenceText = $"{model.SessionReference}.DataStorage[{model.DataStorageKey}]";
         }
 
+        string modifiers = model.PropertyAccessibility;
+        if (model.IsTargetPartialProperty)
+        {
+            modifiers += " partial";
+        }
+
         source.AppendLine($$"""
                     [System.CodeDom.Compiler.GeneratedCode(tool: "{{nameof(DataStoragePropertyGenerator)}}", version: null)]
-                    private DataStorageElement {{model.PropertyName}}
+                    {{modifiers}} DataStorageElement {{model.PropertyName}}
                     {
                         get => {{referenceText}};
                         set => {{referenceText}} = value;
                     }
-            """);
-
-        source.AppendLine("""
                 }
             }
             """);
         context.AddSource(model.ClassName + "_" + model.PropertyName + ".g.cs", SourceText.From(source.ToString(), Encoding.UTF8));
+    }
+
+    private static string GeneratePropAccessibility(ISymbol symbol)
+    {
+        if (symbol.Kind == SymbolKind.Property)
+        {
+            return SyntaxFacts.GetText(symbol.DeclaredAccessibility);
+        }
+        return "private";
+    }
+
+    private static string GeneratePropName(ISymbol symbol)
+    {
+        if (symbol.Kind == SymbolKind.Property)
+        {
+            return symbol.Name;
+        }
+        return GeneratePropName(symbol.Name);
     }
 
     public static string GeneratePropName(string fieldName)

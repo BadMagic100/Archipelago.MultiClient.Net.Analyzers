@@ -1,5 +1,6 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeFixes;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Testing;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Testing;
@@ -45,7 +46,12 @@ public static partial class CSharpCodeFixVerifier<TAnalyzer, TCodeFix>
         => await VerifyCodeFixAsync(source, new[] { expected }, fixedSource);
 
     /// <inheritdoc cref="CodeFixVerifier{TAnalyzer, TCodeFix, TTest, TVerifier}.VerifyCodeFixAsync(string, DiagnosticResult[], string)"/>
-    public static async Task VerifyCodeFixAsync(string source, DiagnosticResult[] expected, string fixedSource, string fixEquivalenceKey = null)
+    public static async Task VerifyCodeFixAsync(
+        string source,
+        DiagnosticResult[] expected,
+        string fixedSource,
+        string fixEquivalenceKey = null,
+        LanguageVersion languageVersion = LanguageVersion.Default)
     {
         var test = new Test
         {
@@ -53,6 +59,10 @@ public static partial class CSharpCodeFixVerifier<TAnalyzer, TCodeFix>
             FixedCode = fixedSource,
             CodeActionEquivalenceKey = fixEquivalenceKey
         };
+        test.SolutionTransforms.Add((sln, proj) =>
+        {
+            return sln.WithProjectParseOptions(proj, CSharpParseOptions.Default.WithLanguageVersion(languageVersion));
+        });
 
         test.ExpectedDiagnostics.AddRange(expected);
         await test.RunAsync(CancellationToken.None);
