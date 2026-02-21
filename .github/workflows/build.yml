@@ -26,3 +26,18 @@ jobs:
       run: dotnet build --no-restore
     - name: Test
       run: dotnet test --no-build
+    - name: Pack
+      run: dotnet pack -o nuget/
+    - name: NuGet login
+      id: login
+      if: github.event_name == 'push'
+      uses: NuGet/login@v1
+      with:
+        user: BadMagic100
+    - name: Publish
+      if: github.event_name == 'push'
+      run: |-
+        dotnet nuget push nuget/*.nupkg \
+          --api-key ${{ steps.login.outputs.NUGET_API_KEY }} \
+          --source https://api.nuget.org/v3/index.json \
+          --skip-duplicate

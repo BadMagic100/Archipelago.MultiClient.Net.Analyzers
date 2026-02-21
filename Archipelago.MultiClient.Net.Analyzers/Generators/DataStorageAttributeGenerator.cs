@@ -24,14 +24,14 @@ public class DataStorageAttributeGenerator : IIncrementalGenerator
                 public Scope Scope { get; }
                 public string Key { get; }
 
-                public DataStoragePropertyAttribute(string sessionVariable, Scope scope, string key)
+                public DataStoragePropertyAttribute(string sessionVariable, global::Archipelago.MultiClient.Net.Enums.Scope scope, string key)
                 {
                     this.SessionVariable = sessionVariable;
                     this.Scope = scope;
                     this.Key = key;
                 }
          
-                public DataStoragePropertyAttribute(string sessionVariable, string key) : this(sessionVariable, Scope.Global, key)
+                public DataStoragePropertyAttribute(string sessionVariable, string key) : this(sessionVariable, global::Archipelago.MultiClient.Net.Enums.Scope.Global, key)
                 {
                 }
             }
