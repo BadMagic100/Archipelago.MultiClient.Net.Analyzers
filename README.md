@@ -1,5 +1,7 @@
 # Archipelago.MultiClient.Net.Analyzers
 
+[![NuGet Version](https://img.shields.io/nuget/v/Archipelago.MultiClient.Net.Analyzers)](https://www.nuget.org/packages/Archipelago.MultiClient.Net.Analyzers)
+
 Source analyzers, fixes, and code generation for the [Archipelago.MultiClient.Net](https://github.com/ArchipelagoMW/Archipelago.MultiClient.Net)
 library.
 
