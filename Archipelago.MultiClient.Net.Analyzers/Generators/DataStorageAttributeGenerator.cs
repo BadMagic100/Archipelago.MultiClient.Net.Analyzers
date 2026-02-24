@@ -13,7 +13,6 @@ public class DataStorageAttributeGenerator : IIncrementalGenerator
         #nullable enable annotations
 
         using System;
-        using Archipelago.MultiClient.Net.Enums;
 
         namespace Archipelago.MultiClient.Net
         {
@@ -21,7 +20,7 @@ public class DataStorageAttributeGenerator : IIncrementalGenerator
             internal sealed class DataStoragePropertyAttribute : Attribute
             {
                 public string? SessionVariable { get; }
-                public Scope Scope { get; }
+                public global::Archipelago.MultiClient.Net.Enums.Scope Scope { get; }
                 public string Key { get; }
 
                 public DataStoragePropertyAttribute(string sessionVariable, global::Archipelago.MultiClient.Net.Enums.Scope scope, string key)
